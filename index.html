@@ -3,82 +3,72 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YouTube Debug Player</title>
+<title>YouTube Player Stable</title>
 
 <style>
 body {
-    background: #121212;
-    color: white;
-    font-family: Arial, sans-serif;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
+    background:#121212;
+    color:white;
+    font-family:Arial;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    min-height:100vh;
 }
 
 .container {
-    width: 95%;
-    max-width: 800px;
-    background: #1e1e1e;
-    padding: 30px;
-    border-radius: 12px;
-    text-align: center;
+    width:95%;
+    max-width:800px;
+    background:#1e1e1e;
+    padding:30px;
+    border-radius:12px;
+    text-align:center;
 }
 
 input {
-    width: 100%;
-    padding: 12px;
-    border-radius: 8px;
-    border: none;
-    margin-bottom: 15px;
+    width:100%;
+    padding:12px;
+    border-radius:8px;
+    border:none;
+    margin-bottom:15px;
 }
 
 button {
-    padding: 10px 20px;
-    background: #ff0000;
-    border: none;
-    border-radius: 8px;
-    color: white;
-    cursor: pointer;
+    padding:10px 20px;
+    background:#ff0000;
+    border:none;
+    border-radius:8px;
+    color:white;
+    cursor:pointer;
 }
 
-#status {
-    margin-top: 15px;
-    font-weight: bold;
-}
+#status { margin-top:10px; }
+#error { color:#ff4d4d; margin-top:10px; }
 
 #progressContainer {
-    width: 100%;
-    background: #333;
-    border-radius: 10px;
-    margin-top: 10px;
-    display: none;
+    width:100%;
+    background:#333;
+    border-radius:10px;
+    margin-top:10px;
+    display:none;
 }
 
 #progressBar {
-    height: 8px;
-    width: 0%;
-    background: #ff0000;
-    border-radius: 10px;
-    transition: width 0.3s ease;
+    height:8px;
+    width:0%;
+    background:#ff0000;
+    border-radius:10px;
+    transition:width .3s;
 }
 
-#error {
-    color: #ff4d4d;
-    margin-top: 10px;
-}
-
-#player {
-    margin-top: 20px;
-}
+#player { margin-top:20px; }
 </style>
 </head>
 
 <body>
 
 <div class="container">
-    <h2>YouTube Player Debug</h2>
-
+    <h2>YouTube Player</h2>
     <input id="ytLink" placeholder="YouTube Link einfügen...">
     <button onclick="loadVideo()">Video laden</button>
 
@@ -89,7 +79,6 @@ button {
     </div>
 
     <div id="error"></div>
-
     <div id="player"></div>
 </div>
 
@@ -97,8 +86,8 @@ button {
 
 <script>
 
-let player;
-let progressInterval;
+let player = null;
+let playerReady = false;
 
 function extractVideoId(url) {
     const regex = /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/;
@@ -112,7 +101,10 @@ function onYouTubeIframeAPIReady() {
         width: '100%',
         videoId: '',
         events: {
-            'onReady': onPlayerReady,
+            'onReady': function () {
+                playerReady = true;
+                console.log("Player ready");
+            },
             'onStateChange': onPlayerStateChange,
             'onError': onPlayerError
         }
@@ -126,76 +118,42 @@ function loadVideo() {
     document.getElementById("error").textContent = "";
     document.getElementById("status").textContent = "🔄 Lade Video...";
     document.getElementById("progressContainer").style.display = "block";
-    document.getElementById("progressBar").style.width = "20%";
+    document.getElementById("progressBar").style.width = "30%";
 
     if (!videoId) {
-        showError("Ungültiger YouTube Link.");
+        showError("Ungültiger Link.");
+        return;
+    }
+
+    if (!playerReady) {
+        showError("YouTube API noch nicht bereit. Seite neu laden.");
         return;
     }
 
     player.loadVideoById(videoId);
 }
 
-function onPlayerReady() {
-    console.log("Player ready");
-}
-
 function onPlayerStateChange(event) {
-    const status = document.getElementById("status");
-
-    if (event.data === YT.PlayerState.PLAYING) {
-        status.textContent = "▶️ Video läuft";
-        document.getElementById("progressBar").style.width = "100%";
-        clearInterval(progressInterval);
-    }
 
     if (event.data === YT.PlayerState.BUFFERING) {
-        status.textContent = "⏳ Buffering...";
-        simulateLoading();
+        document.getElementById("status").textContent = "⏳ Buffering...";
+        document.getElementById("progressBar").style.width = "60%";
     }
 
-    if (event.data === YT.PlayerState.ENDED) {
-        status.textContent = "✅ Video beendet";
+    if (event.data === YT.PlayerState.PLAYING) {
+        document.getElementById("status").textContent = "▶️ Video läuft";
+        document.getElementById("progressBar").style.width = "100%";
     }
 }
 
 function onPlayerError(event) {
-    let message = "";
-
-    switch (event.data) {
-        case 2:
-            message = "❌ Ungültige Video-ID.";
-            break;
-        case 5:
-            message = "❌ HTML5 Player Fehler.";
-            break;
-        case 100:
-            message = "❌ Video nicht gefunden oder privat.";
-            break;
-        case 101:
-        case 150:
-            message = "❌ Einbetten vom Video nicht erlaubt.";
-            break;
-        default:
-            message = "❌ Unbekannter Fehler.";
-    }
-
-    showError(message);
+    showError("Fehlercode: " + event.data);
 }
 
 function showError(msg) {
     document.getElementById("error").textContent = msg;
     document.getElementById("status").textContent = "⚠ Fehler";
     document.getElementById("progressContainer").style.display = "none";
-}
-
-function simulateLoading() {
-    let width = 20;
-    progressInterval = setInterval(() => {
-        if (width >= 90) return;
-        width += 5;
-        document.getElementById("progressBar").style.width = width + "%";
-    }, 200);
 }
 
 </script>
