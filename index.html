@@ -3,19 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YouTube Inline Player</title>
+<title>YouTube Debug Player</title>
 
 <style>
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    font-family: Arial, sans-serif;
-}
-
 body {
     background: #121212;
     color: white;
+    font-family: Arial, sans-serif;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -28,13 +22,7 @@ body {
     background: #1e1e1e;
     padding: 30px;
     border-radius: 12px;
-    box-shadow: 0 0 20px rgba(255,0,0,0.3);
     text-align: center;
-}
-
-h1 {
-    margin-bottom: 20px;
-    color: #ff0000;
 }
 
 input {
@@ -43,112 +31,172 @@ input {
     border-radius: 8px;
     border: none;
     margin-bottom: 15px;
-    font-size: 16px;
 }
 
 button {
     padding: 10px 20px;
-    margin: 5px;
+    background: #ff0000;
     border: none;
     border-radius: 8px;
-    cursor: pointer;
-    font-weight: bold;
-    transition: 0.3s;
-}
-
-.primary {
-    background: #ff0000;
     color: white;
+    cursor: pointer;
 }
 
-.primary:hover {
-    background: #cc0000;
+#status {
+    margin-top: 15px;
+    font-weight: bold;
 }
 
-.error {
+#progressContainer {
+    width: 100%;
+    background: #333;
+    border-radius: 10px;
+    margin-top: 10px;
+    display: none;
+}
+
+#progressBar {
+    height: 8px;
+    width: 0%;
+    background: #ff0000;
+    border-radius: 10px;
+    transition: width 0.3s ease;
+}
+
+#error {
     color: #ff4d4d;
-    margin-bottom: 10px;
+    margin-top: 10px;
 }
 
 #player {
     margin-top: 20px;
-    border-radius: 12px;
-    overflow: hidden;
 }
-
 </style>
 </head>
 
 <body>
 
 <div class="container">
-    <h1>YouTube Video Player</h1>
+    <h2>YouTube Player Debug</h2>
 
-    <input 
-        type="text" 
-        id="ytLink" 
-        placeholder="YouTube Link einfügen..."
-        autofocus
-    >
+    <input id="ytLink" placeholder="YouTube Link einfügen...">
+    <button onclick="loadVideo()">Video laden</button>
 
-    <div id="errorMsg" class="error"></div>
+    <div id="status"></div>
 
-    <button class="primary" onclick="loadVideo()">Video laden & abspielen</button>
+    <div id="progressContainer">
+        <div id="progressBar"></div>
+    </div>
+
+    <div id="error"></div>
 
     <div id="player"></div>
 </div>
 
-<!-- YouTube Iframe API -->
 <script src="https://www.youtube.com/iframe_api"></script>
 
 <script>
 
 let player;
+let progressInterval;
 
 function extractVideoId(url) {
-    const regex = /(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+    const regex = /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/;
     const match = url.match(regex);
     return match ? match[1] : null;
 }
 
-// Wird automatisch von YouTube API aufgerufen
 function onYouTubeIframeAPIReady() {
     player = new YT.Player('player', {
         height: '400',
         width: '100%',
         videoId: '',
-        playerVars: {
-            'autoplay': 1,
-            'controls': 1,
-            'rel': 0
+        events: {
+            'onReady': onPlayerReady,
+            'onStateChange': onPlayerStateChange,
+            'onError': onPlayerError
         }
     });
 }
 
 function loadVideo() {
     const input = document.getElementById("ytLink").value.trim();
-    const errorMsg = document.getElementById("errorMsg");
-
-    errorMsg.textContent = "";
-
     const videoId = extractVideoId(input);
 
+    document.getElementById("error").textContent = "";
+    document.getElementById("status").textContent = "🔄 Lade Video...";
+    document.getElementById("progressContainer").style.display = "block";
+    document.getElementById("progressBar").style.width = "20%";
+
     if (!videoId) {
-        errorMsg.textContent = "Bitte gültigen YouTube-Link eingeben.";
+        showError("Ungültiger YouTube Link.");
         return;
     }
 
-    if (player && player.loadVideoById) {
-        player.loadVideoById(videoId);
+    player.loadVideoById(videoId);
+}
+
+function onPlayerReady() {
+    console.log("Player ready");
+}
+
+function onPlayerStateChange(event) {
+    const status = document.getElementById("status");
+
+    if (event.data === YT.PlayerState.PLAYING) {
+        status.textContent = "▶️ Video läuft";
+        document.getElementById("progressBar").style.width = "100%";
+        clearInterval(progressInterval);
+    }
+
+    if (event.data === YT.PlayerState.BUFFERING) {
+        status.textContent = "⏳ Buffering...";
+        simulateLoading();
+    }
+
+    if (event.data === YT.PlayerState.ENDED) {
+        status.textContent = "✅ Video beendet";
     }
 }
 
-// Enter-Taste Support
-document.getElementById("ytLink").addEventListener("keypress", function(e){
-    if (e.key === "Enter") {
-        loadVideo();
+function onPlayerError(event) {
+    let message = "";
+
+    switch (event.data) {
+        case 2:
+            message = "❌ Ungültige Video-ID.";
+            break;
+        case 5:
+            message = "❌ HTML5 Player Fehler.";
+            break;
+        case 100:
+            message = "❌ Video nicht gefunden oder privat.";
+            break;
+        case 101:
+        case 150:
+            message = "❌ Einbetten vom Video nicht erlaubt.";
+            break;
+        default:
+            message = "❌ Unbekannter Fehler.";
     }
-});
+
+    showError(message);
+}
+
+function showError(msg) {
+    document.getElementById("error").textContent = msg;
+    document.getElementById("status").textContent = "⚠ Fehler";
+    document.getElementById("progressContainer").style.display = "none";
+}
+
+function simulateLoading() {
+    let width = 20;
+    progressInterval = setInterval(() => {
+        if (width >= 90) return;
+        width += 5;
+        document.getElementById("progressBar").style.width = width + "%";
+    }, 200);
+}
 
 </script>
 
