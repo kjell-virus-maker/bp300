@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YouTube Player Stable</title>
+<title>YouTube Player</title>
 
 <style>
 body {
@@ -42,23 +42,9 @@ button {
     cursor:pointer;
 }
 
-#status { margin-top:10px; }
-#error { color:#ff4d4d; margin-top:10px; }
-
-#progressContainer {
-    width:100%;
-    background:#333;
-    border-radius:10px;
+#error {
+    color:#ff4d4d;
     margin-top:10px;
-    display:none;
-}
-
-#progressBar {
-    height:8px;
-    width:0%;
-    background:#ff0000;
-    border-radius:10px;
-    transition:width .3s;
 }
 
 iframe {
@@ -73,16 +59,10 @@ iframe {
 <body>
 
 <div class="container">
-    <h2>YouTube Player</h2>
+    <h2>YouTube Video Player</h2>
 
     <input id="ytLink" placeholder="YouTube Link einfügen...">
-    <button onclick="loadVideo()">Video laden</button>
-
-    <div id="status"></div>
-
-    <div id="progressContainer">
-        <div id="progressBar"></div>
-    </div>
+    <button onclick="loadVideo()">Video anzeigen</button>
 
     <div id="error"></div>
     <div id="playerContainer"></div>
@@ -100,11 +80,7 @@ function loadVideo() {
 
     const input = document.getElementById("ytLink").value.trim();
     const videoId = extractVideoId(input);
-
-    const status = document.getElementById("status");
     const error = document.getElementById("error");
-    const progress = document.getElementById("progressContainer");
-    const bar = document.getElementById("progressBar");
     const container = document.getElementById("playerContainer");
 
     error.textContent = "";
@@ -115,19 +91,10 @@ function loadVideo() {
         return;
     }
 
-    status.textContent = "🔄 Lade Video...";
-    progress.style.display = "block";
-    bar.style.width = "50%";
-
     const iframe = document.createElement("iframe");
     iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
     iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
     iframe.allowFullscreen = true;
-
-    iframe.onload = function() {
-        status.textContent = "▶️ Video geladen";
-        bar.style.width = "100%";
-    };
 
     container.appendChild(iframe);
 }
